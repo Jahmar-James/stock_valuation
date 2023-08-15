@@ -3,7 +3,7 @@ from sqlalchemy import Column, Integer, Float, Date, ForeignKey
 from sqlalchemy.orm import relationship
 from .base import BaseModel
 
-class HistoricalMetric(BaseModel):
+class HistoricalMetrics(BaseModel):
     """
     Quarterly key historical metrics for a stock
     """

@@ -1,7 +1,7 @@
 # app/daom/models/__init__.py
 from .user import User
 from .user_portfolio import UserPortfolio
-from .configurations import Configuration
+from .configuration import Configuration
 from .dividend import Dividend
 from .document import Document
 from .historical_metrics import HistoricalMetrics

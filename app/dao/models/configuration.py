@@ -1,5 +1,5 @@
 # app/dao/models/configuration.py
-from sqlalchemy import Column, Integer, String, ForeignKey, JSON
+from sqlalchemy import Column, Integer, ForeignKey, JSON
 from sqlalchemy.orm import relationship
 from .base import BaseModel
 
@@ -12,3 +12,7 @@ class Configuration(BaseModel):
     settings= Column(JSON, nullable=False)
     
     user = relationship("User", back_populates="configuration")
+    
+if __name__ == "__main__":
+    # your testing code here
+    print("Testing Configuration ORM")
