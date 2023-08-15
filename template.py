@@ -6,10 +6,10 @@
 from typing import Type, Optional, Iterator, Tuple, List, Dict
 from contextlib import contextmanager
 from pydantic import BaseModel
-from sqlalchemy import create_engine, Column, Integer, String, select
+from sqlalchemy import create_engine, Column, Integer, String, select, MetaData
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker 
-from sqlalchemy_continuum import make_versioned, versioning_manager,Versioned
+from sqlalchemy_continuum import make_versioned, versioning_manager
 
 # Call this before defining your mapped classes.
 make_versioned()
@@ -21,10 +21,15 @@ DATABASE_URL = "sqlite:///./test.db"
 engine = create_engine(DATABASE_URL)
 SessionLocal = sessionmaker(bind=engine)
 
+class BaseVersioned(Base):
+    """Base class for versioned tables."""
+    __abstract__ = True
+    __versioned__ = {}
+
 
 
 # ORM Model
-class User(Base, Versioned):
+class User(BaseVersioned):
     """ORM representation of the User Table conteain user entitres"""
     __tablename__ = 'users'
 
@@ -74,35 +79,43 @@ class BaseRepository:
     def __init__(self, model: Type[Base]):
         self.model = model
 
-    def create_entity(self, entity: Base, session: Optional[SessionLocal] = None) -> Tuple[bool, int]:
-        with provide_session(session) as s:
+    def create_entity(self, entity: Base, current_session: Optional[SessionLocal] = None) -> Tuple[bool, int]:
+        with provide_session(current_session) as active_session:
             try:
-                s.add(entity)
-                s.flush()  # Get the ID without committing if it's an external session
+                active_session.add(entity)
+                active_session.flush() 
                 return True, entity.id
             except Exception as e:
-                # Handle specific exceptions and logging as needed
                 print(f"Error adding entity ({entity}): {e}")
                 return False, -1
 
     def retrieve_entity_by_id(self, entity_id: int, session: Optional[SessionLocal] = None) -> Optional[Base]:
-        with provide_session(session) as s:
-            return s.query(self.model).filter_by(id=entity_id).first()
+        with provide_session(session) as active_session:
+            entity = active_session.query(self.model).get(entity_id).first()
+            if entity:
+                active_session.expunge(entity)
+                return entity
+            else:
+                return None
     
     def update_entity(self, entity: Base, session: Optional[SessionLocal] = None) -> bool:
-        with provide_session(session) as s:
+        with provide_session(session) as active_session:
             try:
-                s.merge(entity)
+                active_session.merge(entity)
                 return True
             except Exception as e:
                 print(f"Error updating entity: {e}")
                 return False
 
     def delete_entity_by_id(self, entity_id: int, session: Optional[SessionLocal] = None) -> bool:
-        with provide_session(session) as s:
+        with provide_session(session) as active_session:
+            entity = self.retrieve_entity_by_id(entity_id, active_session)
+            if not entity:
+                print(f"Entity with ID {entity_id} does not exist. Cannot delete.")
+                return False
             try:
-                entity = self.retrieve_entity_by_id(entity_id, s)
-                s.delete(entity)
+                entity = self.retrieve_entity_by_id(entity_id, active_session)
+                active_session.delete(entity)
                 return True
             except Exception as e:
                 print(f"Error deleting entity: {e}")
@@ -126,23 +139,29 @@ class UserRepository(BaseRepository):
 
 class ModelConverterBase:
     """Converts between ORM and DTO objects"""
-    def __init__(self, data:[UserDataTransfer, User]):
+    def __init__(self, data:[UserDataTransfer, User],dto_class: Type[BaseModel], orm_class: Type[Base]):
+        self.dto_class = dto_class
+        self.orm_class = orm_class
+        self.dto = None
+        self.orm = None
+        self.current_representation = None
+
         # To create a intance which pressive the data
-        if isinstance(data, UserDataTransfer):
+        if isinstance(data, self.dto_class):
             self.current_representation = "DTO"
             self.dto = data
-            self.orm = ModelConverterBase.to_orm(data, User)
-        elif isinstance(data, User):
+            self.orm = ModelConverterBase.to_orm(data, self.orm_class)
+        elif isinstance(data, self.orm_class):
             self.current_representation = "ORM"
-            self.dto = ModelConverterBase.to_dto(data, UserDataTransfer)
+            self.dto = ModelConverterBase.to_dto(data, self.dto_class)
             self.orm = data
     
     def toggle_model_form(self):
         if self.current_representation == "DTO":
-            self.orm = ModelConverterBase.to_orm(self.dto, User)
+            self.orm = ModelConverterBase.to_orm(self.dto, self.orm_class)
             self.current_representation = "ORM"
         elif self.current_representation == "ORM":
-            self.dto = ModelConverterBase.to_dto(self.orm, UserDataTransfer)
+            self.dto = ModelConverterBase.to_dto(self.orm, self.dto_class)
             self.current_representation = "DTO"
         else:
             raise Exception("Invalid Representation")
@@ -157,8 +176,12 @@ class ModelConverterBase:
 
 # If you need specific handling for User entities, then UserModelConverter makes sense. 
 # Otherwise, just use the ModelConverterBase directly
-class UserModelConverter(ModelConverterBase):
-    """Allow for mapping attributes with different names or not contained in db"""
+class UserConverterBase(ModelConverterBase):
+    """ Converts between User ORM and UserDataTransfer DTO objects
+        Allow for mapping attributes with different names or not contained in db
+    """
+    def __init__(self, data:[UserDataTransfer, User]):
+        super().__init__(data, UserDataTransfer, User)
     # Your DTO fields here
 
  # SERVICE AND BUSINESS LOGIC LAYER
@@ -166,8 +189,23 @@ class UserModelConverter(ModelConverterBase):
 class DatabaseManager:
     """Manages the database connection and provides sessions."""
     def __init__(self, database_url: str):
+        self.config = None # Config class wtih database_url
         self.engine = create_engine(database_url)
         self.SessionLocal = sessionmaker(bind=self.engine)
+        self.metadata = MetaData(self.engine)
+        self._reflect_metadata()
+        tables =  None # Temp 
+        if tables:
+            self._set_internal_databse_tables(tables)
+
+    def _reflect_metadata(self) -> None:
+        """Reflect the database metadata."""
+        self.metadata.reflect()
+
+    def _set_internal_databse_tables(self, tables: List[str]) -> None:
+        """Set the internal database tables."""
+        for table in tables:
+            setattr(self, table, self.metadata.tables[table])
 
     @contextmanager
     def get_session(self) -> Iterator[SessionLocal]:
@@ -185,6 +223,10 @@ class DatabaseManager:
 class DatabaseQueryExecutor:
     """Handles direct SQL queries and their results."""
     # only SELECT statements
+    # Selected “Known” Functions These are GenericFunction class sqlalchemy.sql.functions.
+    # array_agg Support for the ARRAY_AGG function.
+    # min The SQL MIN() aggregate function.
+
     def __init__(self, db_manager: DatabaseManager):
         self._db_manager = db_manager
 
@@ -197,7 +239,7 @@ class DatabaseQueryExecutor:
         with self._db_manager.get_session() as session:
             return session.query(model).all()
         
-    def retrieve_all_entries_pagination(self, model: Type[Base], page: int = 1, items_per_page: int = 10) -> List[Base]:
+    def retrieve_entries_pagination(self, model: Type[Base], page: int = 1, items_per_page: int = 10) -> List[Base]:
         offset = (page - 1) * items_per_page
         with self._db_manager.get_session() as session:
             return session.query(model).offset(offset).limit(items_per_page).all()
