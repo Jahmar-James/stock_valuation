@@ -14,4 +14,4 @@ class HistoricalPrice(BaseModel):
     high_price = Column(Float)
     low_price = Column(Float)
 
-    stock = relationship("Stock", back_populates="historical_price")
+    stock = relationship("Stock", back_populates="historical_prices")

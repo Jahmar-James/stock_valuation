@@ -11,7 +11,7 @@ class Document(BaseModel):
     embedding = Column(LargeBinary) 
     
     stock_id = Column(Integer, ForeignKey("stocks.id", ondelete='SET NULL'), nullable=True)
-    sector_id = Column(Integer, ForeignKey("sectors.id", ondelete='SET NULL'), nullable=True)
+    sector_id = Column(Integer, ForeignKey("sector.id", ondelete='SET NULL'), nullable=True)
 
     __table_args__ = (
         CheckConstraint('stock_id IS NOT NULL OR sector_id IS NOT NULL',

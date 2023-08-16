@@ -4,7 +4,7 @@ from sqlalchemy.orm import relationship
 from .base import BaseModel
 
 stock_sector_association = Table('stock_sector', BaseModel.metadata,
-    Column('stock_id', Integer, ForeignKey('stock.id')),
+    Column('stock_id', Integer, ForeignKey('stocks.id')),
     Column('sector_id', Integer, ForeignKey('sector.id'))
 )
 
@@ -27,8 +27,9 @@ class Stock(BaseModel):
     
     historical_prices = relationship("HistoricalPrice", back_populates="stock", )
     dividends = relationship("Dividend", back_populates="stock")
-    sectors = relationship("Sector", secondary=stock_sector_association, back_populates="stock")
-    historical_metrics = relationship("HistoricalMetric", back_populates="stock")
+    sectors = relationship("Sector", secondary=stock_sector_association, back_populates="stocks")
+    historical_metrics = relationship("HistoricalMetrics", back_populates="stock")
+    holding = relationship("Holding", back_populates="stock")
 
 class Sector(BaseModel):
     __tablename__ = "sector"
@@ -37,4 +38,4 @@ class Sector(BaseModel):
     name = Column(String, unique=True, nullable=False)
     description = Column(String)
     
-    stocks = relationship("Stock", secondary=stock_sector_association, back_populates="sector")
+    stocks = relationship("Stock", secondary=stock_sector_association, back_populates="sectors")

@@ -28,4 +28,4 @@ class HistoricalMetrics(BaseModel):
     return_on_equity = Column(Float)
     return_on_investment = Column(Float)
     
-    stock = relationship("Stock", back_populates="historical_metric")
+    stock = relationship("Stock", back_populates="historical_metrics")

@@ -9,5 +9,6 @@ from .historical_price import HistoricalPrice
 from .holding import Holding
 from .stock_sector import Stock, Sector
 from .valuation_model import ValuationModel
+from .transaction import Transaction
 
 

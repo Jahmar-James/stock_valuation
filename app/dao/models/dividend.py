@@ -11,4 +11,4 @@ class Dividend(BaseModel):
     date = Column(Date)
     dividend = Column(Float)
 
-    stock = relationship("Stock", back_populates="dividend")
+    stock = relationship("Stock", back_populates="dividends")

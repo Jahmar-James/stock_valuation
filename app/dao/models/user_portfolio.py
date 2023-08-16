@@ -12,8 +12,8 @@ class UserPortfolio(BaseModel):
     user_id = Column(Integer, ForeignKey("users.id", ondelete='CASCADE'))
     name = Column(String)
     description = Column(String)
-    creation_date = Column(DateTime, default=datetime.now)
+    creation_date = Column(DateTime, default=datetime.utcnow)
     type = Column(String) # "paper" or "real" Taxable or Tax-Deferred, etc.
-    user = relationship("User", back_populates="portfolio")
-    transactions = relationship("Transaction", back_populates="portfolio") # real
-    holdings = relationship("Holding", back_populates="portfolio") # paper
+    user = relationship("User", back_populates="portfolios")  # Each portfolio is related to one user
+    transactions = relationship("Transaction", back_populates="portfolio") # real | Each portfolio has one set of transactions
+    holdings = relationship("Holding", back_populates="portfolio") # paper | Each portfolio has one set of holdings

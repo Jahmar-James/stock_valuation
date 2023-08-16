@@ -15,5 +15,5 @@ class User(BaseModel):
     last_login = Column(DateTime, default=datetime.utcnow)
     permission = Column(Enum('ADMIN', 'USER', name='permissions'), default='USER')
     hashed_password = Column(String, nullable=False)
-    portfolios = relationship("Portfolio", back_populates="user", cascade="all, delete-orphan")
-    configurations = relationship("Configuration", uselist=False, back_populates="user")
+    portfolios = relationship("UserPortfolio", back_populates="user", cascade="all, delete-orphan")
+    configuration = relationship("Configuration", uselist=False, back_populates="user")
