@@ -3,12 +3,12 @@
 
 # SETUP AND UTILITIES
  
-from typing import Type, Optional, Iterator, Tuple, List, Dict
+from typing import Type, Optional, Iterator, Tuple, List, Dict,Union
 from contextlib import contextmanager
 from pydantic import BaseModel
 from sqlalchemy import create_engine, Column, Integer, String, select, MetaData
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker 
+from sqlalchemy.orm import sessionmaker, Session
 from sqlalchemy_continuum import make_versioned, versioning_manager
 
 # Call this before defining your mapped classes.
@@ -25,8 +25,6 @@ class BaseVersioned(Base):
     """Base class for versioned tables."""
     __abstract__ = True
     __versioned__ = {}
-
-
 
 # ORM Model
 class User(BaseVersioned):
@@ -59,7 +57,7 @@ class UserDataTransfer(BaseModel):
 
 # A utility to optionally provide a session or create a new one
 @contextmanager
-def provide_session(external_session=None) -> Iterator[SessionLocal]:
+def provide_session(external_session=None) -> Iterator[Session]:
     if external_session:
         yield external_session
     else:
@@ -76,10 +74,10 @@ def provide_session(external_session=None) -> Iterator[SessionLocal]:
 # CRUD Operations
 class BaseRepository:
     """Base repository class to provide common CRUD operations from ORM objects (DAO)"""
-    def __init__(self, model: Type[Base]):
+    def __init__(self, model: Type[BaseVersioned]):
         self.model = model
 
-    def create_entity(self, entity: Base, current_session: Optional[SessionLocal] = None) -> Tuple[bool, int]:
+    def create_entity(self, entity: BaseVersioned, current_session: Optional[Session] = None) -> Tuple[bool, int]:
         with provide_session(current_session) as active_session:
             try:
                 active_session.add(entity)
@@ -89,7 +87,7 @@ class BaseRepository:
                 print(f"Error adding entity ({entity}): {e}")
                 return False, -1
 
-    def retrieve_entity_by_id(self, entity_id: int, session: Optional[SessionLocal] = None) -> Optional[Base]:
+    def retrieve_entity_by_id(self, entity_id: int, session: Optional[Session] = None) -> Optional[BaseVersioned]:
         with provide_session(session) as active_session:
             entity = active_session.query(self.model).get(entity_id).first()
             if entity:
@@ -98,7 +96,7 @@ class BaseRepository:
             else:
                 return None
     
-    def update_entity(self, entity: Base, session: Optional[SessionLocal] = None) -> bool:
+    def update_entity(self, entity: BaseVersioned, session: Optional[Session] = None) -> bool:
         with provide_session(session) as active_session:
             try:
                 active_session.merge(entity)
@@ -107,7 +105,7 @@ class BaseRepository:
                 print(f"Error updating entity: {e}")
                 return False
 
-    def delete_entity_by_id(self, entity_id: int, session: Optional[SessionLocal] = None) -> bool:
+    def delete_entity_by_id(self, entity_id: int, session: Optional[Session] = None) -> bool:
         with provide_session(session) as active_session:
             entity = self.retrieve_entity_by_id(entity_id, active_session)
             if not entity:
@@ -125,21 +123,21 @@ class UserRepository(BaseRepository):
     def __init__(self):
         super().__init__(model=User)
 
-    def create_user(self, user: User) -> Tuple[bool, int]:
+    def create_user(self, user: User,session) -> Tuple[bool, int]:
         try:
-            status, user_id = super().create_entity(user)
+            status, user_id = super().create_entity(user,session)
             return status, user_id
         except Exception as e:
             print(f"Error adding user: {e}")  
             return False, -1
 
-    def retrieve_user_by_id(self, user_id: int) -> Optional[User]:
-        return self.session.query(User).filter_by(id=user_id).first()
+    def retrieve_user_by_id(self, user_id: int,session) -> Optional[User]:
+        return super().retrieve_entity_by_id(user_id, session)
 
 
-class ModelConverterBase:
+class BaseConverter:
     """Converts between ORM and DTO objects"""
-    def __init__(self, data:[UserDataTransfer, User],dto_class: Type[BaseModel], orm_class: Type[Base]):
+    def __init__(self, data:Union[UserDataTransfer, User],dto_class: Type[BaseModel], orm_class: Type[Base]):
         self.dto_class = dto_class
         self.orm_class = orm_class
         self.dto = None
@@ -150,39 +148,40 @@ class ModelConverterBase:
         if isinstance(data, self.dto_class):
             self.current_representation = "DTO"
             self.dto = data
-            self.orm = ModelConverterBase.to_orm(data, self.orm_class)
+            self.orm = BaseConverter.convert_to_orm(data, self.orm_class)
         elif isinstance(data, self.orm_class):
             self.current_representation = "ORM"
-            self.dto = ModelConverterBase.to_dto(data, self.dto_class)
+            self.dto = BaseConverter.convert_to_transfer_model(data, self.dto_class)
             self.orm = data
     
     def toggle_model_form(self):
         if self.current_representation == "DTO":
-            self.orm = ModelConverterBase.to_orm(self.dto, self.orm_class)
+            self.orm = BaseConverter.convert_to_orm(self.dto, self.orm_class)
             self.current_representation = "ORM"
         elif self.current_representation == "ORM":
-            self.dto = ModelConverterBase.to_dto(self.orm, self.dto_class)
+            self.dto = BaseConverter.convert_to_transfer_model(self.orm, self.dto_class)
             self.current_representation = "DTO"
         else:
             raise Exception("Invalid Representation")
         
     @staticmethod
-    def convert_to_orm(dto: BaseModel, model_class: Type[Base]) -> Base:
+    def convert_to_orm(dto: BaseModel, model_class: Type[BaseVersioned]) -> BaseVersioned:
         return model_class(**dto.model_dump())
 
     @staticmethod
-    def convert_to_transfer_model(orm_obj: Base, dto_class: Type[BaseModel]) -> BaseModel:
+    def convert_to_transfer_model(orm_obj: BaseVersioned, dto_class: Type[BaseModel]) -> BaseModel:
         return dto_class.model_validate(orm_obj)
 
 # If you need specific handling for User entities, then UserModelConverter makes sense. 
-# Otherwise, just use the ModelConverterBase directly
-class UserConverterBase(ModelConverterBase):
+# Otherwise, just use the BaseConverter directly
+class UserBaseConverter(BaseConverter):
     """ Converts between User ORM and UserDataTransfer DTO objects
         Allow for mapping attributes with different names or not contained in db
     """
-    def __init__(self, data:[UserDataTransfer, User]):
+    def __init__(self, data:Union[UserDataTransfer, User]):
         super().__init__(data, UserDataTransfer, User)
     # Your DTO fields here
+  
 
  # SERVICE AND BUSINESS LOGIC LAYER
 
@@ -200,7 +199,7 @@ class DatabaseManager:
 
     def _reflect_metadata(self) -> None:
         """Reflect the database metadata."""
-        self.metadata.reflect()
+        self.metadata.reflect(bind=self.engine)
 
     def _set_internal_databse_tables(self, tables: List[str]) -> None:
         """Set the internal database tables."""
@@ -208,7 +207,7 @@ class DatabaseManager:
             setattr(self, table, self.metadata.tables[table])
 
     @contextmanager
-    def get_session(self) -> Iterator[SessionLocal]:
+    def get_session(self) -> Iterator[Session]:
         """Provide a session for database interactions."""
         session = self.SessionLocal()
         try:
@@ -235,40 +234,40 @@ class DatabaseQueryExecutor:
             result = session.execute(select_statement)
             return [dict(row) for row in result]
         
-    def retrieve_all_entries(self, model: Type[Base]) -> List[Base]:
+    def retrieve_all_entries(self, model: Type[BaseVersioned]) -> List[BaseVersioned]:
         with self._db_manager.get_session() as session:
             return session.query(model).all()
         
-    def retrieve_entries_pagination(self, model: Type[Base], page: int = 1, items_per_page: int = 10) -> List[Base]:
+    def retrieve_entries_pagination(self, model: Type[BaseVersioned], page: int = 1, items_per_page: int = 10) -> List[BaseVersioned]:
         offset = (page - 1) * items_per_page
         with self._db_manager.get_session() as session:
             return session.query(model).offset(offset).limit(items_per_page).all()
 
-    def retrieve_entry_by_id(self, model: Type[Base], record_id: int) -> Base:
+    def retrieve_entry_by_id(self, model: Type[BaseVersioned], record_id: int) -> BaseVersioned:
         with self._db_manager.get_session() as session:
             return session.query(model).get(record_id)
 
-    def retrieve_entries_by_conditions(self, model: Type[Base], conditions: Dict) -> List[Base]:
+    def retrieve_entries_by_conditions(self, model: Type[BaseVersioned], conditions: Dict) -> List[BaseVersioned]:
         with self._db_manager.get_session() as session:
             return session.query(model).filter_by(**conditions).all()
 
-    def count_entries_with_conditions(self, model: Type[Base], conditions: Dict = None) -> int:
+    def count_entries_with_conditions(self, model: Type[BaseVersioned], conditions: Dict = None) -> int:
         with self._db_manager.get_session() as session:
             query = session.query(model)
             if conditions:
                 query = query.filter_by(**conditions)
             return query.count()
 
-    def does_entry_exist(self, model: Type[Base], conditions: Dict) -> bool:
+    def does_entry_exist(self, model: Type[BaseVersioned], conditions: Dict) -> bool:
         with self._db_manager.get_session() as session:
             return session.query(model).filter_by(**conditions).first() is not None
 
-    def retrieve_model_columns(self, model: Type[Base]) -> List[str]:
+    def retrieve_model_columns(self, model: Type[BaseVersioned]) -> List[str]:
         with self._db_manager.get_session() as session:
             mapper = model.__mapper__
             return [column.key for column in mapper.columns]
         
-    def joined_tables_by_id(self, model_1: Type[Base], model_2: Type[Base]) -> List[Base]:
+    def joined_tables_by_id(self, model_1: Type[BaseVersioned], model_2: Type[BaseVersioned]) -> List[BaseVersioned]:
         statment = select(model_1).join(model_1.id == model_2.id)
         with self._db_manager.get_session() as session:
             return session.execute(statment).all()
@@ -280,7 +279,7 @@ class UserService:
 
     def create_user(self, user_dto: UserDataTransfer) -> UserDataTransfer:
         with self.db_manager.get_session() as session:
-            orm_user = ModelConverterBase.convert_to_orm(user_dto, User)
+            orm_user = BaseConverter.convert_to_orm(user_dto, User)
             status, user_id = self.user_repository.create_user(orm_user, session)
 
             if status is False:
@@ -288,11 +287,11 @@ class UserService:
             # Fetch the created user. This might seem redundant but ensures the auto-generated fields are populated.
             # And, correctly updates the DTO with the new ID.
             user = self.user_repository.retrieve_user_by_id(user_id, session)
-            return ModelConverterBase.convert_to_transfer_model(user, UserDataTransfer)
+            return BaseConverter.convert_to_transfer_model(user, UserDataTransfer)
     
-    def get_user_by_id(self, user_id: int, session: SessionLocal) -> UserDataTransfer:
+    def get_user_by_id(self, user_id: int, session: Session) -> UserDataTransfer:
         user = self.user_repository.retrieve_user_by_id(user_id, session)
-        return ModelConverterBase.convert_to_transfer_model(user, UserDataTransfer)
+        return BaseConverter.convert_to_transfer_model(user, UserDataTransfer)
 
 
 # OPERATION INTERFACE (FACADE)
