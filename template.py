@@ -5,7 +5,8 @@
  
 from typing import Type, Optional, Iterator, Tuple, List, Dict,Union
 from contextlib import contextmanager
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
+from typing import Optional
 from sqlalchemy import create_engine, Column, Integer, String, select, MetaData
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, Session
@@ -44,13 +45,16 @@ Base.metadata.create_all(bind=engine)
 
 # DATA TRANSFER OBJECTS (DTOs) AND CONVERTERS
 
-class UserDataTransfer(BaseModel):
-    """ Model for transferring User data. (DTO))"""
+class BaseModelRepresentation(BaseModel):
+    """Pydantic base model for data representation."""
+    model_config = ConfigDict(from_attributes=True)
+
+class UserDataTransfer(BaseModelRepresentation):
+    """DTO for User data."""
     id: Optional[int]
     name: str
     email: str
 
-    model_config = {"from_attributes": True}
 
 # DATA ACCESS (REPOSITORIES) CRUD OPERATIONS
 
