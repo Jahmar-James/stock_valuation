@@ -2,55 +2,86 @@
 # Desiging phase
 
 # SETUP AND UTILITIES
- 
+from datetime import datetime
 from typing import Type, Optional, Iterator, Tuple, List, Dict,Union
 from contextlib import contextmanager
-from pydantic import BaseModel
-from sqlalchemy import create_engine, Column, Integer, String, select, MetaData
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker, Session
-from sqlalchemy_continuum import make_versioned, versioning_manager
+from pydantic import BaseModel as PydanticBaseModel, PrivateAttr
+from pydantic.utils import ConfigDict
+from sqlalchemy import create_engine, Column, Integer, String, select, MetaData, ForeignKey, DateTime
+from sqlalchemy.orm import sessionmaker, Session, relationship, configure_mappers, mapped_column, Mapped, registry
+from sqlalchemy_continuum import make_versioned
 
 # Call this before defining your mapped classes.
 make_versioned()
 
-Base = declarative_base()
+mapper_registry = registry()
+Base = mapper_registry.generate_base()
 
 # Database setup
 DATABASE_URL = "sqlite:///./test.db"
 engine = create_engine(DATABASE_URL)
 SessionLocal = sessionmaker(bind=engine)
 
-class BaseVersioned(Base):
+class BaseORMVersioned(Base):
     """Base class for versioned tables."""
     __abstract__ = True
     __versioned__ = {}
+    
+    def __repr__(self):
+        return f'ORM:<{self.__class__.__name__} {self.id}>'
+
+# Soft delete mixin
+class SoftDeleteMixin:
+    deleted_at = Column(DateTime, nullable=True, default=None)
 
 # ORM Model
-class User(BaseVersioned):
-    """ORM representation of the User Table conteain user entitres"""
-    __tablename__ = 'users'
+class User(BaseORMVersioned):
+    """User of the application, for multiple local users"""
+    __tablename__ = "users"
 
-    id = Column(Integer, primary_key=True)
-    name = Column(String)
-    email = Column(String, unique=True)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    name: Mapped[str] =  mapped_column(String)
+    age: Mapped[int] =  mapped_column(Integer)
+    email: Mapped[str] =  mapped_column(String(100), unique=True)
+    # A one-to-many relationship between User and UserPortfolio
+    portfolios = relationship("UserPortfolio", back_populates="user", cascade="all, delete-orphan")
+    
+class UserPortfolio(BaseORMVersioned, SoftDeleteMixin):
+    __tablename__ = 'portfolio'
 
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    # A many-to-one relationship between UserPortfolio and User
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete='CASCADE'))
+    
 # Other tables would be defined here
 # Configuration, UserPortfolio, Holding, Stock, HistoricalMetric, Sector, HistoricalPrice, Dividend, Document, ValuationModel, Stock and Sector Association)
 
 # Create tables
-versioning_manager.init(Base)
-Base.metadata.create_all(bind=engine)
+configure_mappers()
 
 # DATA TRANSFER OBJECTS (DTOs) AND CONVERTERS
 
-class UserDataTransfer(BaseModel):
+class BaseModelRepresentation(PydanticBaseModel):
+    """Pydantic base model for data representation."""
+    model_config = ConfigDict(from_attributes=True) # orm_mode is now from_attributes
+    _processed_at: datetime = PrivateAttr(default_factory=datetime.utcnow)
+    
+    def __repr__(self):
+        return f'DTO: <{self.__class__.__name__}>'
+
+
+class UserDataTransfer(PydanticBaseModel):
     """ Model for transferring User data. (DTO))"""
-    id: Optional[int]
     name: str
+    age: int
     email: str
 
-    model_config = {"from_attributes": True}
+# User from ORM
+class UserFromDB(UserDataTransfer):
+    """User data representation from ORM."""
+    id: int
+    created_at: datetime
+    updated_at: datetime
 
 # DATA ACCESS (REPOSITORIES) CRUD OPERATIONS
 
@@ -74,10 +105,10 @@ def provide_session(external_session=None) -> Iterator[Session]:
 # CRUD Operations
 class BaseRepository:
     """Base repository class to provide common CRUD operations from ORM objects (DAO)"""
-    def __init__(self, model: Type[BaseVersioned]):
+    def __init__(self, model: Type[BaseORMVersioned]):
         self.model = model
 
-    def create_entity(self, entity: BaseVersioned, current_session: Optional[Session] = None) -> Tuple[bool, int]:
+    def create_entity(self, entity: BaseORMVersioned, current_session: Optional[Session] = None) -> Tuple[bool, int]:
         with provide_session(current_session) as active_session:
             try:
                 active_session.add(entity)
@@ -87,7 +118,7 @@ class BaseRepository:
                 print(f"Error adding entity ({entity}): {e}")
                 return False, -1
 
-    def retrieve_entity_by_id(self, entity_id: int, session: Optional[Session] = None) -> Optional[BaseVersioned]:
+    def retrieve_entity_by_id(self, entity_id: int, session: Optional[Session] = None) -> Optional[BaseORMVersioned]:
         with provide_session(session) as active_session:
             entity = active_session.query(self.model).get(entity_id).first()
             if entity:
@@ -96,7 +127,7 @@ class BaseRepository:
             else:
                 return None
     
-    def update_entity(self, entity: BaseVersioned, session: Optional[Session] = None) -> bool:
+    def update_entity(self, entity: BaseORMVersioned, session: Optional[Session] = None) -> bool:
         with provide_session(session) as active_session:
             try:
                 active_session.merge(entity)
@@ -137,7 +168,7 @@ class UserRepository(BaseRepository):
 
 class BaseConverter:
     """Converts between ORM and DTO objects"""
-    def __init__(self, data:Union[UserDataTransfer, User],dto_class: Type[BaseModel], orm_class: Type[Base]):
+    def __init__(self, data:Union[UserDataTransfer, User],dto_class: Type[PydanticBaseModel], orm_class: Type[Base]):
         self.dto_class = dto_class
         self.orm_class = orm_class
         self.dto = None
@@ -165,11 +196,11 @@ class BaseConverter:
             raise Exception("Invalid Representation")
         
     @staticmethod
-    def convert_to_orm(dto: BaseModel, model_class: Type[BaseVersioned]) -> BaseVersioned:
+    def convert_to_orm(dto: PydanticBaseModel, model_class: Type[BaseORMVersioned]) -> BaseORMVersioned:
         return model_class(**dto.model_dump())
 
     @staticmethod
-    def convert_to_transfer_model(orm_obj: BaseVersioned, dto_class: Type[BaseModel]) -> BaseModel:
+    def convert_to_transfer_model(orm_obj: BaseORMVersioned, dto_class: Type[PydanticBaseModel]) -> PydanticBaseModel:
         return dto_class.model_validate(orm_obj)
 
 # If you need specific handling for User entities, then UserModelConverter makes sense. 
@@ -201,9 +232,9 @@ class DatabaseManager:
         """Reflect the database metadata."""
         self.metadata.reflect(bind=self.engine)
 
-    def _set_internal_databse_tables(self, tables: List[str]) -> None:
+    def _set_internal_databse_tables(self) -> None:
         """Set the internal database tables."""
-        for table in tables:
+        for table in self.metadata.tables:
             setattr(self, table, self.metadata.tables[table])
 
     @contextmanager
@@ -234,40 +265,40 @@ class DatabaseQueryExecutor:
             result = session.execute(select_statement)
             return [dict(row) for row in result]
         
-    def retrieve_all_entries(self, model: Type[BaseVersioned]) -> List[BaseVersioned]:
+    def retrieve_all_entries(self, model: Type[BaseORMVersioned]) -> List[BaseORMVersioned]:
         with self._db_manager.get_session() as session:
             return session.query(model).all()
         
-    def retrieve_entries_pagination(self, model: Type[BaseVersioned], page: int = 1, items_per_page: int = 10) -> List[BaseVersioned]:
+    def retrieve_entries_pagination(self, model: Type[BaseORMVersioned], page: int = 1, items_per_page: int = 10) -> List[BaseORMVersioned]:
         offset = (page - 1) * items_per_page
         with self._db_manager.get_session() as session:
             return session.query(model).offset(offset).limit(items_per_page).all()
 
-    def retrieve_entry_by_id(self, model: Type[BaseVersioned], record_id: int) -> BaseVersioned:
+    def retrieve_entry_by_id(self, model: Type[BaseORMVersioned], record_id: int) -> BaseORMVersioned:
         with self._db_manager.get_session() as session:
             return session.query(model).get(record_id)
 
-    def retrieve_entries_by_conditions(self, model: Type[BaseVersioned], conditions: Dict) -> List[BaseVersioned]:
+    def retrieve_entries_by_conditions(self, model: Type[BaseORMVersioned], conditions: Dict) -> List[BaseORMVersioned]:
         with self._db_manager.get_session() as session:
             return session.query(model).filter_by(**conditions).all()
 
-    def count_entries_with_conditions(self, model: Type[BaseVersioned], conditions: Dict = None) -> int:
+    def count_entries_with_conditions(self, model: Type[BaseORMVersioned], conditions: Dict = None) -> int:
         with self._db_manager.get_session() as session:
             query = session.query(model)
             if conditions:
                 query = query.filter_by(**conditions)
             return query.count()
 
-    def does_entry_exist(self, model: Type[BaseVersioned], conditions: Dict) -> bool:
+    def does_entry_exist(self, model: Type[BaseORMVersioned], conditions: Dict) -> bool:
         with self._db_manager.get_session() as session:
             return session.query(model).filter_by(**conditions).first() is not None
 
-    def retrieve_model_columns(self, model: Type[BaseVersioned]) -> List[str]:
+    def retrieve_model_columns(self, model: Type[BaseORMVersioned]) -> List[str]:
         with self._db_manager.get_session() as session:
             mapper = model.__mapper__
             return [column.key for column in mapper.columns]
         
-    def joined_tables_by_id(self, model_1: Type[BaseVersioned], model_2: Type[BaseVersioned]) -> List[BaseVersioned]:
+    def joined_tables_by_id(self, model_1: Type[BaseORMVersioned], model_2: Type[BaseORMVersioned]) -> List[BaseORMVersioned]:
         statment = select(model_1).join(model_1.id == model_2.id)
         with self._db_manager.get_session() as session:
             return session.execute(statment).all()
