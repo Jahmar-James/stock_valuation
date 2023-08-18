@@ -5,8 +5,8 @@
 from datetime import datetime
 from typing import Type, Optional, Iterator, Tuple, List, Dict,Union
 from contextlib import contextmanager
-from pydantic import BaseModel as PydanticBaseModel, PrivateAttr
-from pydantic.utils import ConfigDict
+from pydantic import BaseModel as PydanticBaseModel, PrivateAttr, ConfigDict
+from typing import Optional 
 from sqlalchemy import create_engine, Column, Integer, String, select, MetaData, ForeignKey, DateTime
 from sqlalchemy.orm import sessionmaker, Session, relationship, configure_mappers, mapped_column, Mapped, registry
 from sqlalchemy_continuum import make_versioned
