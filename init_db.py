@@ -1,7 +1,6 @@
 #app/init_db.py
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, configure_mappers
-from sqlalchemy_continuum import VersioningManager
 from app.dao.models.base import Base
 
 from config import Config
