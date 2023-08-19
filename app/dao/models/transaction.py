@@ -1,25 +1,31 @@
-# app/dao/models/"transaction.py
-from sqlalchemy import Column, Integer, Enum,  Float, DateTime, ForeignKey
-from .base import BaseModel
-from sqlalchemy.orm import validates, relationship
+# app/dao/models/transaction.py
+from sqlalchemy import Integer, Enum, Float, DateTime, ForeignKey
+from sqlalchemy.orm import relationship, Mapped, mapped_column, validates
+from .base import BaseORMVersioned
 from datetime import datetime
 
-
-class Transaction(BaseModel):
+class Transaction(BaseORMVersioned):
     __tablename__ = "transaction"
 
-    id = Column(Integer, primary_key=True, index=True)
-    stock_id = Column(Integer, ForeignKey("stocks.id", ondelete='CASCADE'))
-    portfolio_id = Column(Integer, ForeignKey("portfolio.id", ondelete='CASCADE'))
-    transaction_type = Column(Enum('BUY', 'SELL', 'DIVIDEND','STOCK_SPLIT', name='transaction_types'))
-    transaction_date = Column(DateTime, default=datetime.utcnow)  # Date the transaction took place
-    quantity = Column(Integer)
-    price = Column(Float)
-    fees = Column(Float)
+    # Columns
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    stock_id: Mapped[int] = mapped_column(Integer, ForeignKey("stocks.id", ondelete='CASCADE'))
+    portfolio_id: Mapped[int] = mapped_column(Integer, ForeignKey("portfolio.id", ondelete='CASCADE'))
+    transaction_type: Mapped[str] = mapped_column(Enum('BUY', 'SELL', 'DIVIDEND', 'STOCK_SPLIT', name='transaction_types'))
+    transaction_date: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)  # Date the transaction took place
+    quantity: Mapped[int] = mapped_column(Integer)
+    price: Mapped[float] = mapped_column(Float)
+    fees: Mapped[float] = mapped_column(Float)
     
-    portfolio = relationship("UserPortfolio", back_populates="transactions")
-    
-    
+    # Relationships
+    # one-to-many -> (A User's Portfolio) - has - (Transactions associated with a stock)
+    portfolio: Mapped["UserPortfolio"] = relationship("UserPortfolio", back_populates="transactions")
+
+    def __repr__(self):
+        return (f"<Transaction(id={self.id}, stock_id={self.stock_id}, "
+                f"transaction_type={self.transaction_type}, transaction_date={self.transaction_date}, "
+                f"quantity={self.quantity}, price={self.price}, fees={self.fees})>")
+
     @validates('price')
     def validate_price(self, key, price):
         if self.transaction_type in ('DIVIDEND', 'STOCK_SPLIT'):

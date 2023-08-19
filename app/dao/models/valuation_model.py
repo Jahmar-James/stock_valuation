@@ -1,22 +1,26 @@
 # app/dao/models/valuation_model.py
 from datetime import datetime
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Float, Text
+from sqlalchemy import Integer, String, DateTime, ForeignKey, Float, Text, JSON
+from sqlalchemy.orm import Mapped, mapped_column
+from .base import BaseORMVersioned
 
-from .base import BaseModel
+class ValuationModel(BaseORMVersioned):
 
-class ValuationModel(BaseModel):
-    """
-    Represents a stock valuation in the database.
-    DAO (Data Access Object): An object that provides an abstract interface to some database or other persistence mechanism.
-    """
     __tablename__ = "valuation_model"
 
-    id = Column(Integer, primary_key=True, index=True)
-    stock_id = Column(Integer, ForeignKey("stocks.id", ondelete='SET NULL'))
-    valuation_date = Column(DateTime, default=datetime.utcnow)
-    valuation_method = Column(String, nullable=False)  # Name/Type of the strategy used
-    valuation_result = Column(Float, nullable=False, index=True)
-    assumptions = Column(Text, nullable=True)  # JSON string containing the assumptions used for the valuation
-    parameters = Column(Text, nullable=True)  # JSON string containing the parameters used for the valuation
-    file_path = Column(String, index=True, unique=True)  # Path to the file containing the valuation report | CSV or Excel file
+    # Columns
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    stock_id: Mapped[int] = mapped_column(Integer, ForeignKey("stocks.id", ondelete='SET NULL'))
+    valuation_date: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    valuation_method: Mapped[str] = mapped_column(String, nullable=False)  # Name/Type of the strategy used
+    valuation_result: Mapped[float] = mapped_column(Float, nullable=False, index=True)
+    assumptions: Mapped[str] = mapped_column(JSON, nullable=True)  # JSON string containing the assumptions used for the valuation
+    parameters: Mapped[str] = mapped_column(JSON, nullable=True)  # JSON string containing the parameters used for the valuation
+    file_path: Mapped[str] = mapped_column(String, index=True, unique=True)  # Path to the file containing the valuation report | CSV or Excel file
     #<stock_symbol>_<valuation_method>_<valuation_date>.csv
+
+    def __repr__(self):
+        return (f"<ValuationModel(id={self.id}, stock_id={self.stock_id}, "
+                f"valuation_date={self.valuation_date}, valuation_method={self.valuation_method}, "
+                f"valuation_result={self.valuation_result})>")
+

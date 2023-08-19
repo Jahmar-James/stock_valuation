@@ -8,9 +8,10 @@ make_versioned()
 mapper_registry = registry()
 Base = mapper_registry.generate_base()
 
-class BaseModel(Base):
+class BaseORMVersioned(Base):
+    """Base class for versioned tables."""
     __abstract__ = True
     __versioned__ = {}
-
+    
     def __repr__(self):
-        return '<%s %r>' % (self.__class__.__name__, self.id)
+        return f'ORM:<{self.__class__.__name__} {self.id}>'
