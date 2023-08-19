@@ -19,6 +19,6 @@ class Document(BaseORMVersioned):
     __table_args__ = (
         CheckConstraint('stock_id IS NOT NULL OR sector_id IS NOT NULL', name='chk_stock_sector_presence'),
     )
-    
+
     def __repr__(self):
-        return f"<Document(id={self.id}, filename={self.filename}, content_length={len(self.content)})>"
+        return f"ORM: <Document(id={self.id}, filename={self.filename}, content_length={len(self.content)})>"

@@ -22,4 +22,4 @@ class User(BaseORMVersioned):
     configuration: Mapped["Configuration"] = relationship("Configuration", uselist=False, back_populates="user")
     
     def __repr__(self) -> str:
-        return f"User(id={self.id!r}, username={self.username!r}, first_name={self.first_name!r}, last_name={self.last_name!r})"
+        return f"ORM: User(id={self.id!r}, username={self.username!r}, first_name={self.first_name!r}, last_name={self.last_name!r})"

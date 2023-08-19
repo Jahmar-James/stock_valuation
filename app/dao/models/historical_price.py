@@ -21,5 +21,5 @@ class HistoricalPrice(BaseORMVersioned):
     stock: Mapped["Stock"] = relationship("Stock", back_populates="historical_prices")
 
     def __repr__(self):
-        return (f"<HistoricalPrice(date={self.date}, stock_id={self.stock_id}, open_price={self.open_price}, "
+        return (f"ORM: <HistoricalPrice(date={self.date}, stock_id={self.stock_id}, open_price={self.open_price}, "
                 f"close_price={self.close_price}, high_price={self.high_price}, low_price={self.low_price})>")

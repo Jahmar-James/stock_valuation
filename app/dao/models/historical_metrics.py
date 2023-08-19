@@ -34,5 +34,5 @@ class HistoricalMetrics(BaseORMVersioned):
     stock: Mapped["Stock"] = relationship("Stock", back_populates="historical_metrics")
 
     def __repr__(self):
-        return (f"<HistoricalMetrics(id={self.id}, stock_id={self.stock_id}, date={self.date}, "
+        return (f"ORM: <HistoricalMetrics(id={self.id}, stock_id={self.stock_id}, date={self.date}, "
                 f"Market_cap{self.market_cap})>")

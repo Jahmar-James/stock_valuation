@@ -23,5 +23,5 @@ class Holding(BaseORMVersioned):
     stock: Mapped["Stock"] = relationship("Stock", back_populates="holding")
 
     def __repr__(self):
-        return (f"<Holding(id={self.id}, stock_id={self.stock_id}, quantity={self.quantity}, "
+        return (f"ORM: <Holding(id={self.id}, stock_id={self.stock_id}, quantity={self.quantity}, "
                 f"date={self.date}, average_cost_basis={self.average_cost_basis})>")

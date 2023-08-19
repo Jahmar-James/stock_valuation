@@ -17,7 +17,7 @@ class Configuration(BaseORMVersioned):
     user: Mapped["User"] = relationship("User", back_populates="configuration")
 
     def __repr__(self):
-        return f"<Configuration(id={self.id}, user_id={self.user_id}, settings={self.settings})>"
+        return f"ORM: <Configuration(id={self.id}, user_id={self.user_id}, settings={self.settings})>"
 
 if __name__ == "__main__":
     # your testing code here

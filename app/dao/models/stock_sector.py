@@ -47,7 +47,7 @@ class Stock(BaseORMVersioned):
     holding: Mapped["Holding"] = relationship("Holding", back_populates="stock")
 
     def __repr__(self):
-        return f"<Stock(id={self.id}, ticker_symbol={self.ticker_symbol}, company_name={self.company_name})>"
+        return f"ORM: <Stock(id={self.id}, ticker_symbol={self.ticker_symbol}, company_name={self.company_name})>"
 
 class Sector(BaseORMVersioned):
     """
@@ -73,4 +73,4 @@ class Sector(BaseORMVersioned):
     stocks: Mapped["Stock"] = relationship("Stock", secondary=stock_sector_association, back_populates="sectors")
 
     def __repr__(self):
-        return f"<Sector(id={self.id}, name={self.name}, description={self.description})>"
+        return f"ORM: <Sector(id={self.id}, name={self.name}, description={self.description})>"

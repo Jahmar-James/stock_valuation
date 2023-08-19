@@ -18,4 +18,4 @@ class Dividend(BaseORMVersioned):
     stock: Mapped["Stock"] = relationship("Stock", back_populates="dividends")
 
     def __repr__(self):
-        return f"<Dividend(id={self.id}, stock_id={self.stock_id}, date={self.date}, dividend={self.dividend})>"
+        return f"ORM: <Dividend(id={self.id}, stock_id={self.stock_id}, date={self.date}, dividend={self.dividend})>"

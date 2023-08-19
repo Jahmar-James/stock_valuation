@@ -25,4 +25,4 @@ class UserPortfolio(BaseORMVersioned):
     holdings: Mapped["Holding"] = relationship("Holding", back_populates="portfolio")
 
     def __repr__(self):
-        return f"<Portfolio(id={self.id}, name={self.name}, description={self.description}, creation_date={self.creation_date}, type={self.type})>"
+        return f"ORM: <Portfolio(id={self.id}, name={self.name}, description={self.description}, creation_date={self.creation_date}, type={self.type})>"

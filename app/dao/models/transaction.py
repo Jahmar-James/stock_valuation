@@ -22,7 +22,7 @@ class Transaction(BaseORMVersioned):
     portfolio: Mapped["UserPortfolio"] = relationship("UserPortfolio", back_populates="transactions")
 
     def __repr__(self):
-        return (f"<Transaction(id={self.id}, stock_id={self.stock_id}, "
+        return (f"ORM: <Transaction(id={self.id}, stock_id={self.stock_id}, "
                 f"transaction_type={self.transaction_type}, transaction_date={self.transaction_date}, "
                 f"quantity={self.quantity}, price={self.price}, fees={self.fees})>")
 

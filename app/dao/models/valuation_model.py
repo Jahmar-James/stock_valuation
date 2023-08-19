@@ -20,7 +20,7 @@ class ValuationModel(BaseORMVersioned):
     #<stock_symbol>_<valuation_method>_<valuation_date>.csv
 
     def __repr__(self):
-        return (f"<ValuationModel(id={self.id}, stock_id={self.stock_id}, "
+        return (f"ORM: <ValuationModel(id={self.id}, stock_id={self.stock_id}, "
                 f"valuation_date={self.valuation_date}, valuation_method={self.valuation_method}, "
                 f"valuation_result={self.valuation_result})>")
 
