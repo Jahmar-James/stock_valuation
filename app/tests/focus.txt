@@ -1,0 +1,5 @@
+I probably don't need to test the basic SQLAlchemy functionalities, like committing a session or querying a record. Instead, focus on:
+
+Relationships (e.g., one-to-many, many-to-many) and their behaviors.
+Custom queries or database operations specific to your application.
+Any complex business logic that interacts with the database.

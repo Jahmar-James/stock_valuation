@@ -1,11 +1,12 @@
 # app/dao/models/base.py
-from sqlalchemy.orm import declarative_base
+from sqlalchemy.orm import registry
 from sqlalchemy_continuum import make_versioned
 
 # Call this before defining your mapped classes.
 make_versioned()
 
-Base = declarative_base()
+mapper_registry = registry()
+Base = mapper_registry.generate_base()
 
 class BaseModel(Base):
     __abstract__ = True
