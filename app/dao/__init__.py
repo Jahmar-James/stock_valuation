@@ -1,2 +1,3 @@
 # app/dao/__init__.py
-from .db_manager import DBInitializer, DatabaseManager
+from app.dao.db_manger import DatabaseManager, DBInitializer
+from app.dao.db_inspector import DatabaseInspector
