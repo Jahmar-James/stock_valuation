@@ -1,14 +1,14 @@
 # app/dao/models/stock_sector.py
 
-from sqlalchemy import Integer, String, ForeignKey, Table
+from sqlalchemy import Integer, String, ForeignKey, Table, Column
 from sqlalchemy.orm import relationship, Mapped, mapped_column
 from .base import BaseORMVersioned
 
 stock_sector_association = Table(
     'stock_sector', 
     BaseORMVersioned.metadata,
-    mapped_column('stock_id', Integer, ForeignKey('stocks.id')),
-    mapped_column('sector_id', Integer, ForeignKey('sector.id'))
+    Column('stock_id', Integer, ForeignKey('stocks.id')),
+    Column('sector_id', Integer, ForeignKey('sector.id'))
 )
 
 class Stock(BaseORMVersioned):
