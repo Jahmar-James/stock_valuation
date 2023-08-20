@@ -12,3 +12,4 @@ from .valuation_model import ValuationModel
 from .transaction import Transaction
 
 
+All_MODELS = [User, Configuration, Dividend, Document, HistoricalMetrics, HistoricalPrice, Holding, Stock, Sector, ValuationModel, Transaction, UserPortfolio]
