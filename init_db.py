@@ -18,8 +18,5 @@ if __name__ == "__main__":
     if choice == 'yes':
         Base.metadata.create_all(bind=engine)
         print("Tables created successfully!")
-
-
-        print("Versioning manager initialized successfully!")
     else:
         print("Operation aborted.")
