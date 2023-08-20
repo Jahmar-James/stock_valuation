@@ -1,39 +1,37 @@
-# test_stock.py
-import pytest
-from unittest.mock import Mock, create_autospec
-from sqlalchemy.exc import IntegrityError
+# app/tests/test_models/test_stock.py
+from app.dao.models import Stock
+from app.tests.fixtures.conftest import fake_stock_data_list
 
 """
 Unit tests for the Stock model:
-    - Test that a Stock instance can be created with just a ticker_symbol.
-    - Test the uniqueness of the ticker_symbol.
-    - Test the behavior of appending and clearing relationships like historical_prices, dividends, etc.
+    - Test that a Stock instance can be created with proper attributes.
 """
-# Test if a stock is properly initialized
-def test_stock_initialization(mock_stock_aapl):
-    assert mock_stock_aapl.ticker_symbol == "AAPL"
-    assert mock_stock_aapl.company_name == "Apple Inc."
 
-# Test appending a stock to a sector
-def test_append_stock_to_sector(mock_stock_aapl, mock_sector):
-    mock_sector.stocks.append(mock_stock_aapl)
-    assert mock_stock_aapl in mock_sector.stocks
+def test_create_stock(fake_stock_data_list):
+    """
+    Test that a Stock instance can be created with proper attributes.
+    """
+    for stock_data in fake_stock_data_list:
+        stock = Stock(**stock_data)
 
-# Test unique constraint on stock ticker_symbol
-def test_unique_stock_ticker(mock_stock_msft):
-    mock_session = create_autospec(spec=Mock, instance=True)
+        # Check attributes
+        assert stock.ticker_symbol == stock_data['ticker_symbol']
+        assert stock.company_name == stock_data['company_name']
+
+        # Check DB generated attributes - id should be None unless persisted
+        assert stock.id is None
+
+        # Check relationships - these should be empty initially
+        assert not stock.historical_prices
+        assert not stock.dividends
+        assert not stock.sectors
+        assert not stock.historical_metrics
+        assert not stock.holding
     
-    mock_session.query().filter().first.return_value = mock_stock_msft
-    mock_session.add(mock_stock_msft)
-
-    with pytest.raises(IntegrityError, match="UNIQUE constraint failed: stock.ticker_symbol"):
-        mock_session.commit()
-
-
-
 """
 Notes for Future Reference:
 Stock Model:
-  - Unit: Ensure ticker_symbol uniqueness and manage relationships.
-  - Integration: Test unique constraints in DB, relationship mappings, and cascading behaviors.
+  - Unit: Only necessary unit tests are for attribute initialization and relationships.
+  - Integration: Test associations with other models, especially Sector, HistoricalPrice, Dividend, etc.
+    CRUD operations and behaviors should be tested in repository and service layers.
 """

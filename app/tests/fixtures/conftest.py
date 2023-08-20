@@ -2,6 +2,9 @@
 import pytest
 from faker import Faker
 from unittest.mock import Mock
+from datetime import datetime
+from app.dao.models.user import User
+
 
 fake = Faker([
     'en_US',     # United States
@@ -12,9 +15,27 @@ fake = Faker([
     'fr_FR',     # France
     'ar_AE',     # UAE
     'de_DE',     # Germany
-    'en_ZA',     # South Africa
 ])
 
+
+
+class MockedUser(User):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        
+        if self.permission is None:
+            self.permission = 'USER'
+    
+    @property
+    def last_login(self):
+        if not hasattr(self, "_last_login"):
+            self._last_login = datetime.utcnow()
+        return self._last_login
+
+    @last_login.setter
+    def last_login(self, value):
+        self._last_login = value
+        
 @pytest.fixture
 def fake_user_data():
     return {
@@ -25,16 +46,78 @@ def fake_user_data():
     }
 
 @pytest.fixture
-def mock_stock_aapl():
-    return Mock(ticker_symbol="AAPL", company_name="Apple Inc.")
+def mocked_user(fake_user_data):
+    user = MockedUser(**fake_user_data)
+    return user 
 
 @pytest.fixture
-def mock_stock_msft():
-    return Mock(ticker_symbol="MSFT", company_name="Microsoft Corporation")
+def fake_portfolio_data_real(mocked_user):
+    """Generate fake data for a real portfolio."""
+    return {
+        "user": mocked_user,
+        "name": fake.company_suffix(),
+        "description": fake.catch_phrase(),
+        "type": "real"
+    }
 
 @pytest.fixture
-def mock_stock_googl():
-    return Mock(ticker_symbol="GOOGL", company_name="Alphabet Inc.")
+def fake_portfolio_data_paper(mocked_user):
+    """Generate fake data for a paper portfolio."""
+    return {
+        "user": mocked_user,
+        "name": fake.company_prefix(),
+        "description": fake.bs(),  # Generates a random "buzzword"
+        "type": "paper"
+    }
+
+def mock_transaction(id=None):
+    transaction = Mock()
+    transaction.id = id if id is not None else fake.random_int()
+    return transaction
+
+def mock_holding(id=None):
+    holding = Mock()
+    holding.id = id if id is not None else fake.random_int()
+    return holding
+
+@pytest.fixture
+def fake_stock_data_aapl():
+    return {"ticker_symbol": "AAPL", "company_name": "Apple Inc."}
+
+@pytest.fixture
+def fake_stock_data_msft():
+    return {"ticker_symbol": "MSFT", "company_name": "Microsoft Corporation"}
+
+@pytest.fixture
+def fake_stock_data_googl():
+    return {"ticker_symbol": "GOOGL", "company_name": "Alphabet Inc."}
+
+@pytest.fixture
+def fake_stock_data_list():
+    """Generate a list of mock stock data for testing purposes."""
+    return [
+        {"ticker_symbol": "AAPL", "company_name": "Apple Inc."},
+        {"ticker_symbol": "MSFT", "company_name": "Microsoft Corporation"},
+        {"ticker_symbol": "GOOGL", "company_name": "Alphabet Inc."}
+    ]
+    
+@pytest.fixture
+def fake_sector_data_list():
+    """Generate a list of mock sector data for testing purposes."""
+    return [
+        {"name": "Technology", "description": "Tech companies like Apple, Microsoft, etc."},
+        {"name": "Finance", "description": "Banks and financial institutions."},
+        {"name": "Healthcare", "description": "Pharmaceuticals, hospitals, etc."}
+    ]
+    
+@pytest.fixture
+def fake_transaction_data_list():
+    """Generate a list of mock transaction data for testing purposes."""
+    return [
+        {"stock_id": 1, "portfolio_id": 1, "transaction_type": "BUY", "quantity": 10, "price": 150.0, "fees": 5.0},
+        # Add other types and data as necessary...
+    ]
+
 
 @pytest.fixture
 def mock_sector(request):
