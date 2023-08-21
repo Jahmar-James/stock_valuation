@@ -42,8 +42,8 @@ class BaseRepository:
                 print(f"Error adding entity ({entity}): {e}")
                 return False, -1
 
-    def retrieve_entity_by_id(self, entity_id: int, session: Optional[Session] = None) -> Optional[BaseORMVersioned]:
-        with provide_session(session) as active_session:
+    def retrieve_entity_by_id(self, entity_id: int, current_session: Optional[Session] = None) -> Optional[BaseORMVersioned]:
+        with provide_session(current_session) as active_session:
             fetch_query = select(self.model).where(self.model.id == entity_id)
             fetched_entity = active_session.execute(fetch_query).scalars().first()
             if fetched_entity:
@@ -51,8 +51,9 @@ class BaseRepository:
                 return fetched_entity
             else:
                 return None
-    def retrieve_entity_by_attribute(self, attribute, value, session: Optional[Session] = None) -> Optional[BaseORMVersioned]:
-        with provide_session(session) as active_session:
+            
+    def retrieve_entity_by_attribute(self, attribute, value, current_session: Optional[Session] = None) -> Optional[BaseORMVersioned]:
+        with provide_session(current_session) as active_session:
             fetch_query = select(self.model).where(attribute == value)
             fetched_entity = active_session.execute(fetch_query).scalars().first()
             if fetched_entity:
@@ -61,16 +62,16 @@ class BaseRepository:
             else:
                 return None
             
-    def retrieve_all_entities(self, session: Optional[Session] = None) -> Iterator[BaseORMVersioned]:
-        with provide_session(session) as active_session:
+    def retrieve_all_entities(self, current_session: Optional[Session] = None) -> Iterator[BaseORMVersioned]:
+        with provide_session(current_session) as active_session:
             fetch_query = select(self.model)
             fetched_entities = active_session.execute(fetch_query).scalars()
             for entity in fetched_entities:
                 active_session.expunge(entity)
                 yield entity
 
-    def update_entity(self, entity: BaseORMVersioned, session: Optional[Session] = None) -> bool:
-        with provide_session(session) as active_session:
+    def update_entity(self, entity: BaseORMVersioned, current_session: Optional[Session] = None) -> bool:
+        with provide_session(current_session) as active_session:
             try:
                 active_session.merge(entity)
                 return True
@@ -78,8 +79,8 @@ class BaseRepository:
                 print(f"Error updating entity: {e}")
                 return False
 
-    def delete_entity_by_id(self, entity_id: int, session: Optional[Session] = None) -> bool:
-        with provide_session(session) as active_session:
+    def delete_entity_by_id(self, entity_id: int, current_session: Optional[Session] = None) -> bool:
+        with provide_session(current_session) as active_session:
             entity = self.retrieve_entity_by_id(entity_id, active_session)
             if not entity:
                 print(f"Entity with ID {entity_id} does not exist. Cannot delete.")
@@ -91,8 +92,8 @@ class BaseRepository:
                 print(f"Error deleting entity: {e}")
                 return False
             
-    def count_all_entities(self, session: Optional[Session] = None) -> int:
-        with provide_session(session) as active_session:
+    def count_all_entities(self, current_session: Optional[Session] = None) -> int:
+        with provide_session(current_session) as active_session:
             count_query = select(func.count()).select_from(self.model)
             entity_count = active_session.scalar(count_query)
             return entity_count
