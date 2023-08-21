@@ -80,6 +80,26 @@ def mock_holding(id=None):
     holding.id = id if id is not None else fake.random_int()
     return holding
 
+def _mock_transaction(id=None):
+    """
+    Mock a transaction.
+    """
+    return {
+        "id": id if id else fake.uuid4(),  # Assign a UUID if id is not provided.
+        "user": mocked_user,
+        "asset": fake.company_suffix(),   # Perhaps better to have another method to mock assets.
+        "quantity": fake.random_int(min=1, max=1000),
+        "transaction_date": fake.date_this_decade(),
+        "transaction_type": fake.random_element(elements=("buy", "sell")),
+        "price_per_unit": fake.random_number(digits=4)  # Generating a random price.
+    }
+
+@pytest.fixture
+def mocked_transaction():
+    return _mock_transaction()
+
+
+
 @pytest.fixture
 def fake_stock_data_aapl():
     return {"ticker_symbol": "AAPL", "company_name": "Apple Inc."}
