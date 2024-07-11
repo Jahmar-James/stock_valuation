@@ -15,6 +15,7 @@ class UserPortfolio(BaseORMVersioned):
     description: Mapped[str] = mapped_column(String)
     creation_date: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     type: Mapped[str] = mapped_column(String) # "paper" or "real" Taxable or Tax-Deferred, etc.
+    # should be a enum type
 
     # Relationships
     # one-to-many -> (user)-has-(portfolios)
